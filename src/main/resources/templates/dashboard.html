@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<title>Period Tracker Dashboard</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
+
+<style>
+body{
+background: linear-gradient(135deg,#ff9a9e,#fad0c4,#fbc2eb);
+min-height:100vh;
+font-family: Arial;
+}
+
+.card{
+border-radius:15px;
+box-shadow:0 6px 20px rgba(0,0,0,0.2);
+}
+
+h2{
+color:#c2185b;
+font-weight:bold;
+}
+
+#calendar{
+background:white;
+padding:10px;
+border-radius:10px;
+margin-top:20px;
+width:500px;
+height:380px;
+margin:auto;
+}
+
+.fc{ font-size:12px; }
+.fc-daygrid-day{ height:55px; }
+
+.dark-mode{
+background:#121212 !important;
+color:white !important;
+}
+
+.dark-mode .card{
+background:#1e1e1e !important;
+color:white;
+}
+
+.dark-mode input,
+.dark-mode select{
+background:#2c2c2c;
+color:white;
+border:1px solid #555;
+}
+
+.dark-mode #calendar{
+background:#1e1e1e;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container mt-5">
+
+<div class="card p-4">
+
+<h2 class="text-center mb-4">🌸 Period Tracker Dashboard</h2>
+
+<div class="d-flex justify-content-end mb-2">
+<button id="themeBtn" onclick="toggleTheme()" class="btn btn-dark btn-sm">
+🌙 Dark Mode
+</button>
+</div>
+
+<form action="/savePeriod" method="post">
+<label>Start Date</label>
+<input class="form-control mb-3" type="date" name="startDate">
+
+<label>End Date</label>
+<input class="form-control mb-3" type="date" name="endDate">
+
+<label>Symptoms</label>
+<select class="form-control mb-3" name="symptoms">
+<option>Cramps</option>
+<option>Fatigue</option>
+<option>Headache</option>
+<option>Back Pain</option>
+<option>Stomach Pain</option>
+<option>Mood swings</option>
+</select>
+
+<button class="btn btn-danger w-100">Save Period</button>
+</form>
+
+<hr>
+
+<h5>Next Period Prediction</h5>
+<p class="text-primary fw-bold" th:text="${nextDate} ?: 'Not available'"></p>
+
+<h5>Health Tips</h5>
+<p class="text-success" th:text="${tips} ?: 'No tips yet'"></p>
+
+<hr>
+
+<div class="text-center">
+<a href="/history" class="btn btn-dark">Previous Periods</a>
+</div>
+
+</div>
+
+<div id="calendar"></div>
+
+<hr>
+
+<h4 class="text-center mt-4">Cycle Analytics</h4>
+
+<canvas id="cycleChart" width="400" height="200"></canvas>
+
+<p class="text-center mt-3">
+Average Cycle Length: <b id="avgCycle">28</b> days
+</p>
+
+<!-- ✅ CYCLE INTELLIGENCE -->
+<hr>
+
+<h4 class="text-center">Cycle Intelligence</h4>
+
+<div class="text-center mt-3">
+
+<p>
+Risk Status:
+<b th:if="${irregular}" style="color:red;">⚠️ Irregular Cycle</b>
+<b th:unless="${irregular}" style="color:green;">✅ Normal</b>
+</p>
+
+<p>
+Trend: <b th:text="${trend} ?: 'Stable'"></b>
+</p>
+
+<p>
+Prediction Confidence:
+<b th:text="${confidence} ?: 0"></b>%
+</p>
+
+</div>
+
+<div th:if="${missed}" class="alert alert-danger text-center mt-3">
+⚠️ Your cycle seems delayed. Track closely or consult a doctor.
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- ✅ IMPORTANT -->
+<script th:inline="javascript">
+
+document.addEventListener('DOMContentLoaded', function() {
+
+var calendarEl = document.getElementById('calendar');
+
+/* SAFE Thymeleaf values */
+var nextPeriod = /*[[${nextDate}]]*/ null;
+var cycleData = /*[[${cycleData}]]*/ [];
+
+/* CALENDAR */
+if(nextPeriod){
+var startDate = new Date(nextPeriod);
+
+var periodEvents = [];
+
+for(let i=0;i<5;i++){
+let d = new Date(startDate);
+d.setDate(startDate.getDate()+i);
+
+periodEvents.push({
+start:d.toISOString().split('T')[0],
+display:'background',
+color:'#ff4d6d'
+});
+}
+
+var calendar = new FullCalendar.Calendar(calendarEl, {
+initialView:'dayGridMonth',
+initialDate: nextPeriod,
+events: periodEvents
+});
+
+calendar.render();
+
+/* Notification */
+if(Notification.permission !== "granted"){
+Notification.requestPermission();
+}
+
+var today = new Date();
+var diffDays = Math.floor((startDate - today)/(1000*60*60*24));
+
+if(diffDays === 2){
+if(Notification.permission === "granted"){
+new Notification("Reminder: Your period may start in 2 days");
+}
+}
+}
+
+/* GRAPH */
+if(cycleData && cycleData.length > 0){
+
+var months = [];
+var sum = 0;
+
+for(let i=0;i<cycleData.length;i++){
+months.push("Cycle " + (i+1));
+sum += cycleData[i];
+}
+
+var avg = Math.round(sum / cycleData.length);
+document.getElementById("avgCycle").innerText = avg;
+
+var ctx = document.getElementById('cycleChart').getContext('2d');
+
+new Chart(ctx,{
+type:'line',
+data:{
+labels:months,
+datasets:[{
+label:'Cycle Length',
+data:cycleData,
+borderColor:'#ff4d6d',
+backgroundColor:'rgba(255,77,109,0.2)',
+fill:true
+}]
+}
+});
+}
+
+});
+
+/* DARK MODE */
+function toggleTheme(){
+let body = document.body;
+let btn = document.getElementById("themeBtn");
+
+body.classList.toggle("dark-mode");
+
+if(body.classList.contains("dark-mode")){
+btn.innerText = "☀️ Light Mode";
+localStorage.setItem("theme","dark");
+}else{
+btn.innerText = "🌙 Dark Mode";
+localStorage.setItem("theme","light");
+}
+}
+
+/* LOAD THEME */
+window.onload = function(){
+let savedTheme = localStorage.getItem("theme");
+let btn = document.getElementById("themeBtn");
+
+if(savedTheme === "dark"){
+document.body.classList.add("dark-mode");
+btn.innerText = "☀️ Light Mode";
+}
+}
+
+</script>
+<div class="d-flex justify-content-between mb-2">
+
+<a href="/logout" class="btn btn-danger btn-sm">
+Logout
+</a>
+
+<button id="themeBtn" onclick="toggleTheme()" class="btn btn-dark btn-sm">
+🌙 Dark Mode
+</button>
+
+</div>
+</body>
+</html>
