@@ -5,6 +5,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import com.periodtracker.model.User;
 import com.periodtracker.repository.UserRepository;
@@ -45,22 +46,21 @@ public class AuthController {
 
     // LOGIN LOGIC
     @PostMapping("/login")
-    public String login(String email, String password, Model model, HttpSession session){
+public String login(@RequestParam String email,
+                    @RequestParam String password,
+                    Model model,
+                    HttpSession session) {
 
-        User u = repo.findByEmail(email);
+    User existingUser = repo.findByEmail(email);
 
-        if(u != null && u.getPassword().equals(password)){
-            
-            // ✅ STORE SESSION
-            session.setAttribute("userId", u.getId());
-
-            // ✅ REDIRECT TO DASHBOARD (URL WILL CHANGE)
-            return "redirect:/dashboard";
-        }
-
-        model.addAttribute("msg","Invalid Login");
+    if (existingUser != null && existingUser.getPassword().equals(password)) {
+        session.setAttribute("userId", existingUser.getId());
+        return "redirect:/dashboard";
+    } else {
+        model.addAttribute("error", "Invalid email or password");
         return "login";
     }
+}
 
     // LOGOUT
     @GetMapping("/logout")

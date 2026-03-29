@@ -125,12 +125,18 @@ public String getHistory(Model model) {
 }
 
     @GetMapping("/dashboard")
-public String showDashboard(HttpSession session){
+public String showDashboard(HttpSession session, Model model){
 
-    // 🔥 PROTECT ROUTE
     if(session.getAttribute("userId") == null){
         return "redirect:/login";
     }
+
+    // ✅ ADD SAFE DEFAULT DATA (THIS FIXES 500)
+    model.addAttribute("cycleData", new ArrayList<>());
+    model.addAttribute("irregular", false);
+    model.addAttribute("trend", "Stable");
+    model.addAttribute("confidence", 0);
+    model.addAttribute("missed", false);
 
     return "dashboard";
 }
